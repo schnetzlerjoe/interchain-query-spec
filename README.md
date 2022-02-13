@@ -7,7 +7,7 @@ requires: 25, 26, 27
 kind: instantiation
 author: Joe Schnetzler <schnetzlerjoe@gmail.com>
 created: 2022-01-06
-modified: 2020-01-09
+modified: 2022-02-12
 ---
 
 ## Synopsis
@@ -41,9 +41,9 @@ Interchain Accounts (ICS-27) brings one of the most important features IBC offer
 
 The Querying Chain starts with the implementation of the Interchain Query Module by adding the module into their chain.
 
-The general flow for interchain queries starts with a Cross Chain Query Request from the Querying Chain which is listened to by relayers. Upon recognition of a cross chain query, relayers utilize a ABCI Query Request to query data from the Queried Chain. Upon success, the relayer submits a `MsgSubmitQueryResult` to the Querying chain.
+The general flow for interchain queries starts with a Cross Chain Query Request from the Querying Chain which is listened to by relayers. Upon recognition of a cross chain query, relayers utilize a ABCI Query Request to query data from the Queried Chain. Upon success, the relayer submits a `MsgSubmitQueryResult` to the Querying chain with the success flag as 1.
 
-On failure of a query, relayers submit `MsgSubmitQueryErrorResult` to the Querying chain. Alternatively on timeout relayers submit `MsgSubmitQueryTimeoutResult`.
+On failure of a query, relayers submit `MsgSubmitQueryResult` with the `success` flag as 0 to the Querying chain. Alternatively on timeout based on the height of the querying chain, the querying chain will submit `SubmitQueryTimeoutResult` with the timeout height specified.
 
 ### Data Structures
 
@@ -51,46 +51,56 @@ A CrossChainABCIQueryRequest data type is used to specify the query. Included in
 
 ```go
 type CrossChainABCIQueryRequest struct {
-	Data          []byte
-	Path          string
-	timeoutHeight uint64
-	Bounty        sdk.Coin
-	ChainId       string
+	Path           string
+	Key            string
+	Id             string
+	timeoutHeight  uint64
+	Bounty         sdk.Coin
+	ClientId       string
 }
 ```
 
 ```go
 type QueryResult struct {
-	Data    []byte
-	Height  uint64
-	ChainId string
-}
-```
-
-```go
-type QueryErrorResult struct {
-	Error   string
-	ChainId string
+	Data     []byte
+	Key      string
+	Id       string
+	Height   uint64
+	ClientId string
+	Success  bool
 }
 ```
 
 ```go
 type QueryTimeoutResult struct {
+	Key            string
+	Id       	   string
 	timeoutHeight  string
-	ChainId        string
+	ClientId       string
+}
+```
+
+### Keepers
+
+```go
+func CrossChainABCIQueryRequest(
+	
+) {
+  //Keeper to initiate interchain query request
+}
+```
+
+```go
+func SubmitQueryTimeoutResult(
+
+) {
+  //Keeper to submit a query timeout result. Applied at the beggining of each block and timedout when the querying chain hits timeout height.
 }
 ```
 
 ### Messages
 
-
-```go
-func MsgCrossChainABCIQueryRequest(
-	
-) *cobra.Command {
-  //Msg for query request submit message
-}
-```
+The querying chain has messages that the relayer can submit depending on a success/failed query.
 
 ```go
 func MsgSubmitQueryResult(
@@ -100,21 +110,7 @@ func MsgSubmitQueryResult(
 }
 ```
 
-```go
-func MsgSubmitQueryErrorResult(
-
-) *cobra.Command {
-  //Msg to submit a query error result
-}
-```
-
-```go
-func MsgSubmitQueryTimeoutResult(
-
-) *cobra.Command {
-  //Msg to submit a query timeout result
-}
-```
+The querying chain will have messages to get a list of interchain queries as well as get a query by type and id.
 
 ```go
 func MsgGetQueries(
@@ -129,7 +125,7 @@ func MsgGetQueries(
 func MsgGetQuery(
 
 ) *cobra.Command {
-  //Msg to get a query via id
+  //Msg to get a query via id and key (i.e: id: 1 and key: OsmosisPool)
 }
 ```
 
