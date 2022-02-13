@@ -84,7 +84,7 @@ type QueryTimeoutResult struct {
 
 ```go
 func CrossChainABCIQueryRequest(
-	
+	QueryRequest CrossChainABCIQueryRequest
 ) {
   //Keeper to initiate interchain query request
 }
@@ -92,7 +92,7 @@ func CrossChainABCIQueryRequest(
 
 ```go
 func SubmitQueryTimeoutResult(
-
+	QueryTimeout QueryTimeoutResult
 ) {
   //Keeper to submit a query timeout result. Applied at the beggining of each block and timedout when the querying chain hits timeout height.
 }
