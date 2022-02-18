@@ -22,6 +22,9 @@ Interchain Accounts (ICS-27) brings one of the most important features IBC offer
 
 - `Querying Chain`: The chain that is interested in getting data from another chain (Queried Chain). The Querying Chain is the chain that implements the Interchain Query Module into their chain.
 - `Queried Chain`: The chain that's state is being queried via the Querying Chain. The Queried Chain gets queried via a relayer utilizing its RPC client which is then submitted back to the Querying Chain.
+- `Key`: A Key in the querying chain module is a user specified query identifier for a query so a user can identify various query types. For example, if you were to query stakers/delegators on Gaia (Cosmos Hub) and store it in state. You can set the `key` as `stakers` and thus query via the key later on as needed.
+
+``Note:`` that a query in state can only have one unique key-id representation. For example, if a query with key = stakers & id = 0 is already in state, the query will fail if you try to add another query with key = stakers & id = 0. A query with key = stakers & id = 1 will succeed however (as long as that is not in state already).
 
 ### Desired Properties
 
@@ -31,7 +34,7 @@ Interchain Accounts (ICS-27) brings one of the most important features IBC offer
 
 - Modular: Adding cross-chain querying should be as easy as implementing a module in your chain.
 
-- Control Queried Data: The Querying Chain should have ultimate control on how to handle queried data.
+- Control Queried Data: The Querying Chain should have ultimate control on how to handle queried data. Like querying for a certain query form/type.
 
 - Incentivization: In order to incentivize relayers for participating in interchain queries, a bounty is paid.
 
@@ -47,14 +50,14 @@ On failure of a query, relayers submit `MsgSubmitQueryResult` with the `success`
 
 ### Data Structures
 
-A CrossChainABCIQueryRequest data type is used to specify the query. Included in this is the.
+A CrossChainABCIQueryRequest data type is used to specify the query. Included in this is the `Path` which is the path field of the query i.e: /custom/auth/account. `Key` is the data key to name the query i.e: `pools` or `stakers`. `Id` is the id of the query with each key to id being unique i.e: stakers-0 or stakers-1275 (this example follows key-id format). `TimeoutHeight` specifies the timeout height on the querying chain to timeout the query. `Bounty` is a bounty that is given to the relayer for participating in the query. `ClientId` is used to identify the chain of interest. 
 
 ```go
 type CrossChainABCIQueryRequest struct {
 	Path           string
 	Key            string
 	Id             string
-	timeoutHeight  uint64
+	TimeoutHeight  uint64
 	Bounty         sdk.Coin
 	ClientId       string
 }
@@ -68,6 +71,7 @@ type QueryResult struct {
 	Height   uint64
 	ClientId string
 	Success  bool
+	Proof    ProofOps
 }
 ```
 
@@ -75,8 +79,9 @@ type QueryResult struct {
 type QueryTimeoutResult struct {
 	Key            string
 	Id       	   string
-	timeoutHeight  string
+	TimeoutHeight  string
 	ClientId       string
+	Proof          ProofOps
 }
 ```
 
@@ -86,9 +91,11 @@ type QueryTimeoutResult struct {
 func CrossChainABCIQueryRequest(
 	QueryRequest CrossChainABCIQueryRequest
 ) {
-  //Keeper to initiate interchain query request
+  //Keeper to initiate interchain query request. Can be imported into any module and called as needed.
 }
 ```
+
+At the beginning of each block, the querying module checks for pending queries and if the timeout on the querying chain is hit, a timeout result is submitted to state on-chain.
 
 ```go
 func SubmitQueryTimeoutResult(
@@ -130,6 +137,8 @@ func MsgGetQuery(
 ```
 
 ### Events
+
+The querying chain will emit an `EmitQueryEvent` which will signal the relayer to go perform an interchain query and submit the results on-chain.
 
 ```go
 func EmitQueryEvent(ctx sdk.Context, timeoutHeight exported.Height) {
